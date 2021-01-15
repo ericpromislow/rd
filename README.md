@@ -23,4 +23,4 @@ npm run dev
 Note, `setupmac` is a script that pulls down outside resources for mac, puts them
 in the right place, and makes sure their permissions are set properly.
 
-### Force a change..
+### Force a change...
