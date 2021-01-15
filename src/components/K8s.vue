@@ -157,7 +157,7 @@ export default {
               memory_in_gb: this.settings.minikube.allocations.memory_in_gb
             }
           }
-        });
+        }).then(this.restart);
       }
     },
   },
