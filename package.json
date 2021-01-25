@@ -63,6 +63,18 @@
     },
     "rules": {}
   },
+  "jest": {
+    "transform": {
+      "^.+\\.js$": "babel-jest",
+      "^.+\\.vue$": "vue-jest"
+    },
+    "modulePathIgnorePatterns": [
+      "<rootDir>/dist"
+    ],
+    "moduleNameMapper": {
+      "\\.css$": "<rootDir>/src/config/emptyStubForJSLinter.js"
+    }
+  },
   "browserslist": [
     "> 1%",
     "last 2 versions",
