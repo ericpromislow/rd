@@ -106,4 +106,50 @@ describe('SystemPreferences.vue', () => {
     expect(applyChangesButton.exists()).toBeTruthy();
     expect(applyChangesButton.attributes("disabled")).toBeTruthy();
   })
+
+  fit("the sliders detect invalid values", async () => {
+    const wrapper = createWrappedPage(baseProps);
+
+    let div1 =  wrapper.find("div#memoryInGBWrapper");
+    let slider1 =  div1.find("div.vue-slider");
+    let span1 = slider1.find("div.vue-slider-dot");
+    let slider1vm =  slider1.vm;
+
+    for (let i = 2; i <= baseProps.availMemoryInGB; i++) {
+      await slider1vm.setValue(i);
+      expect(span1.attributes("aria-valuenow")).toEqual(i.toString());
+      expect(slider1vm.getValue()).toBe(i);
+    }
+
+    const setUndersizeMemoryValueFunc = () => {
+      slider1vm.setValue(1);
+    };
+    expect(setUndersizeMemoryValueFunc).toThrowError('The "value" must be greater than or equal to the "min"');
+
+    const setOversizeMemoryValueFunc = () => {
+      slider1vm.setValue(baseProps.availMemoryInGB + 1);
+    };
+    expect(setOversizeMemoryValueFunc).toThrowError('The "value" must be less than or equal to the "max"');
+
+    let div2 =  wrapper.find("div#numCPUWrapper");
+    let slider2 =  div2.find("div.vue-slider");
+    let slider2vm =  slider2.vm;
+    let span2 = slider2.find("div.vue-slider-dot");
+
+    for (let i = 1; i <= baseProps.availNumCPUs; i++) {
+      await slider2vm.setValue(i);
+      expect(span2.attributes("aria-valuenow")).toEqual(i.toString());
+      expect(slider2vm.getValue()).toBe(i);
+    }
+
+    const setUndersizeCPUValueFunc = () => {
+      slider2vm.setValue(0);
+    };
+    expect(setUndersizeCPUValueFunc).toThrowError('The "value" must be greater than or equal to the "min"');
+
+    const setOversizeCPUValueFunc = () => {
+      slider2vm.setValue(baseProps.availNumCPUs + 1);
+    };
+    expect(setOversizeCPUValueFunc).toThrowError('The "value" must be less than or equal to the "max"');
+  });
 })
