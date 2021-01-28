@@ -21,8 +21,10 @@
                         :numberCPUs="settings.kubernetes.numberCPUs"
                         :availMemoryInGB="availMemoryInGB"
                         :availNumCPUs="availNumCPUs"
+                        :noChangesToApply="settingsAreUnchanged"
                         @updateMemory="handleUpdateMemory"
                         @updateCPU="handleUpdateCPU"
+                        @applySystemPreferenceChanges="applySystemPreferenceChanges"
     />
     <p>Supporting Utilities:</p>
     <Checkbox :label="'link to /usr/local/bin/kubectl'"
@@ -45,7 +47,6 @@
 import Checkbox from '@/src/components/Checkbox.vue';
 import RadioGroup from '@/src/components/form/RadioGroup.vue';
 import SystemPreferences from "@/src/components/SystemPreferences.vue";
-import debounce from 'lodash/debounce';
 const os = require('os');
 
 const { ipcRenderer } = require('electron');
@@ -66,14 +67,21 @@ export default {
     SystemPreferences,
   },
   data() {
+    const initialSettings = ipcRenderer.sendSync('settings-read');
     return {
-      state: ipcRenderer.sendSync('k8s-state'),
+      'state': ipcRenderer.sendSync('k8s-state'),
       /** @type Settings */
-      settings: ipcRenderer.sendSync('settings-read'),
-      versions: require("../generated/versions.json"),
-      symlinks: {
-        helm: null,
-        kubectl: null,
+      'settings': initialSettings,
+      'versions': require("../generated/versions.json"),
+      'symlinks': {
+        'helm': null,
+        'kubectl': null,
+      },
+      'currentSettings': {
+        kubernetes: {
+          memoryInGB: initialSettings.kubernetes.memoryInGB,
+          numberCPUs: initialSettings.kubernetes.numberCPUs,
+        },
       }
     }
   },
@@ -127,12 +135,15 @@ export default {
 
     numCPUsValueIsValid: function() {
       return !this.invalidCPUReason;
-    }
+    },
+
+    settingsAreUnchanged: function() {
+      return (this.currentSettings.kubernetes.memoryInGB === this.settings.kubernetes.memoryInGB &&
+        this.currentSettings.kubernetes.numberCPUs === this.settings.kubernetes.numberCPUs);
+    },
   },
 
   created() {
-    this.debouncedActOnUpdateMemory = debounce(this.actOnUpdatedMemory, 1000);
-    this.debouncedActOnUpdateCPUs = debounce(this.actOnUpdatedCPUs, 1000);
     const totalMemInGB = os.totalmem() / 2**30;
     const reservedMemoryInGB = 6; // should be higher?
     if (totalMemInGB <= reservedMemoryInGB) {
@@ -153,6 +164,21 @@ export default {
   },
 
   methods: {
+    applySystemPreferenceChanges() {
+      let newArgs = { kubernetes: {} };
+      if (this.currentSettings.kubernetes.memoryInGB != this.settings.kubernetes.memoryInGB && this.memoryValueIsValid) {
+        newArgs.kubernetes.memoryInGB = this.settings.kubernetes.memoryInGB;
+        this.currentSettings.kubernetes.memoryInGB = this.settings.kubernetes.memoryInGB;
+      }
+      if (this.currentSettings.kubernetes.numberCPUs != this.settings.kubernetes.numberCPUs && this.numCPUsValueIsValid) {
+        newArgs.kubernetes.numberCPUs = this.settings.kubernetes.numberCPUs;
+        this.currentSettings.kubernetes.numberCPUs = this.settings.kubernetes.numberCPUs;
+      }
+      if (Object.keys(newArgs.kubernetes).length > 0) {
+        ipcRenderer.invoke('settings-write', newArgs);
+        this.restart();
+      }
+    },
     // Reset a Kubernetes cluster to default at the same version
     reset() {
       this.state = K8s.State.STOPPING;
@@ -162,6 +188,7 @@ export default {
       this.state = K8s.State.STOPPING;
       ipcRenderer.send('k8s-restart', 'Restart Kubernetes');
     },
+
     onChange(event) {
       if (event.target.value != this.settings.kubernetes.version) {
         if (semver.lt(event.target.value, this.settings.kubernetes.version)){
@@ -186,37 +213,9 @@ export default {
     },
     handleUpdateMemory(value) {
       this.settings.kubernetes.memoryInGB = value;
-      if (this.memoryValueIsValid) {
-        this.debouncedActOnUpdateMemory();
-      } else {
-        window.alert(`Not updating memory setting: ${this.invalidMemoryValueReason}`);
-      }
     },
     handleUpdateCPU(value) {
       this.settings.kubernetes.numberCPUs = value;
-      if (this.numCPUsValueIsValid) {
-        this.debouncedActOnUpdateCPUs();
-      } else {
-        window.alert(`Not updating CPU setting: ${this.invalidCPUReason}`);
-      }
-    },
-    actOnUpdatedMemory() {
-      if (this.memoryValueIsValid) {
-        ipcRenderer.invoke('settings-write', {
-          kubernetes: {
-              memoryInGB: this.settings.kubernetes.memoryInGB
-          }
-        })
-      }
-    },
-    actOnUpdatedCPUs() {
-      if (this.numCPUsValueIsValid) {
-        ipcRenderer.invoke('settings-write', {
-          kubernetes: {
-              numberCPUs: this.settings.kubernetes.numberCPUs
-            }
-        })
-      }
     },
     onRancherModeChanged() {
       ipcRenderer.invoke('settings-write', {
@@ -235,6 +234,10 @@ export default {
     ipcRenderer.on('install-state', (event, name, state) => {
       console.log(`install state changed for ${name}: ${state}`);
       this.$data.symlinks[name] = state;
+    });
+    ipcRenderer.on('settings-update', () => {
+      //TODO: put in a status bar
+      console.log(`settings have been updated`);
     });
     ipcRenderer.send('install-state', 'kubectl');
     ipcRenderer.send('install-state', 'helm');
