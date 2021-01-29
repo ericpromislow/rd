@@ -107,7 +107,7 @@ describe('SystemPreferences.vue', () => {
     expect(applyChangesButton.attributes("disabled")).toBeTruthy();
   })
 
-  fit("the sliders detect invalid values", async () => {
+  it("the sliders detect invalid values", async () => {
     const wrapper = createWrappedPage(baseProps);
 
     let div1 =  wrapper.find("div#memoryInGBWrapper");
@@ -183,6 +183,25 @@ describe('SystemPreferences.vue', () => {
     expect(updateCPUEmitter[0]).toEqual([2]);
     expect(updateCPUEmitter[1]).toEqual([4]);
 
+    let updateButton = wrapper.find("button#applyPreferenceChanges");
+    expect(updateButton.exists()).toBeTruthy();
+    await updateButton.trigger('click');
+    let applyChangesEmitter = wrapper.emitted().applySystemPreferenceChanges;
+    expect(applyChangesEmitter).toBeTruthy();
+    expect(applyChangesEmitter.length).toBe(1);
+    expect(applyChangesEmitter[0].length).toEqual(0);
+
+  });
+
+  it("doesn't emit events when disabled", async () => {
+    let props = Object.assign({}, baseProps);
+    props.noChangesToApply = true;
+    const wrapper = createWrappedPage(props);
+
+    let updateButton = wrapper.find("button#applyPreferenceChanges");
+    await updateButton.trigger('click');
+    let applyChangesEmitter = wrapper.emitted().applySystemPreferenceChanges;
+    expect(applyChangesEmitter).toBeFalsy();
   });
 
 })
