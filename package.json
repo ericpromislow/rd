@@ -79,7 +79,9 @@
     "moduleNameMapper": {
       "\\.css$": "<rootDir>/src/config/emptyStubForJSLinter.js"
     },
-    "setupFilesAfterEnv": ["./jest.setup.js"]
+    "setupFilesAfterEnv": [
+      "./jest.setup.js"
+    ]
   },
   "browserslist": [
     "> 1%",
